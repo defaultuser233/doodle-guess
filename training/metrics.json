@@ -1,0 +1,136 @@
+{
+  "top1": 0.5942,
+  "top5": 0.8391,
+  "classes": 100,
+  "trainSamples": 108000,
+  "valSamples": 11994,
+  "epochs": 18,
+  "history": [
+    {
+      "epoch": 1,
+      "trainLoss": 3.5247,
+      "valLoss": 2.6925,
+      "top1": 0.3531,
+      "top5": 0.6515
+    },
+    {
+      "epoch": 2,
+      "trainLoss": 2.8654,
+      "valLoss": 2.3652,
+      "top1": 0.421,
+      "top5": 0.7157
+    },
+    {
+      "epoch": 3,
+      "trainLoss": 2.586,
+      "valLoss": 2.1764,
+      "top1": 0.4626,
+      "top5": 0.7527
+    },
+    {
+      "epoch": 4,
+      "trainLoss": 2.4162,
+      "valLoss": 2.0387,
+      "top1": 0.4961,
+      "top5": 0.7764
+    },
+    {
+      "epoch": 5,
+      "trainLoss": 2.2975,
+      "valLoss": 1.9622,
+      "top1": 0.5128,
+      "top5": 0.7869
+    },
+    {
+      "epoch": 6,
+      "trainLoss": 2.2041,
+      "valLoss": 1.8872,
+      "top1": 0.529,
+      "top5": 0.7984
+    },
+    {
+      "epoch": 7,
+      "trainLoss": 2.1369,
+      "valLoss": 1.8213,
+      "top1": 0.5461,
+      "top5": 0.8085
+    },
+    {
+      "epoch": 8,
+      "trainLoss": 2.0784,
+      "valLoss": 1.7772,
+      "top1": 0.5544,
+      "top5": 0.8146
+    },
+    {
+      "epoch": 9,
+      "trainLoss": 2.033,
+      "valLoss": 1.7274,
+      "top1": 0.5626,
+      "top5": 0.8219
+    },
+    {
+      "epoch": 10,
+      "trainLoss": 1.9943,
+      "valLoss": 1.6993,
+      "top1": 0.5752,
+      "top5": 0.8281
+    },
+    {
+      "epoch": 11,
+      "trainLoss": 1.9639,
+      "valLoss": 1.6736,
+      "top1": 0.5816,
+      "top5": 0.8302
+    },
+    {
+      "epoch": 12,
+      "trainLoss": 1.9389,
+      "valLoss": 1.6618,
+      "top1": 0.5821,
+      "top5": 0.8327
+    },
+    {
+      "epoch": 13,
+      "trainLoss": 1.9162,
+      "valLoss": 1.6447,
+      "top1": 0.588,
+      "top5": 0.8358
+    },
+    {
+      "epoch": 14,
+      "trainLoss": 1.9021,
+      "valLoss": 1.633,
+      "top1": 0.5916,
+      "top5": 0.8374
+    },
+    {
+      "epoch": 15,
+      "trainLoss": 1.8926,
+      "valLoss": 1.6258,
+      "top1": 0.593,
+      "top5": 0.8395
+    },
+    {
+      "epoch": 16,
+      "trainLoss": 1.8798,
+      "valLoss": 1.6205,
+      "top1": 0.5932,
+      "top5": 0.8394
+    },
+    {
+      "epoch": 17,
+      "trainLoss": 1.8725,
+      "valLoss": 1.6194,
+      "top1": 0.5942,
+      "top5": 0.8391
+    },
+    {
+      "epoch": 18,
+      "trainLoss": 1.8749,
+      "valLoss": 1.6195,
+      "top1": 0.5939,
+      "top5": 0.839
+    }
+  ]
+}

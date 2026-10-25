@@ -1,0 +1,33 @@
+{
+  "name": "doodle-guess",
+  "description": "水彩手绘风格的 QuickDraw 你画我猜，本地识别、无需 API Key",
+  "private": true,
+  "version": "1.0.0",
+  "packageManager": "pnpm@11.5.2",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "pnpm lint && pnpm test && pnpm build",
+    "preview": "vite preview",
+    "verify:model": "node scripts/verify-model.mjs"
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "fake-indexeddb": "^6.2.6",
+    "oxlint": "^1.88.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.5"
+  }
+}

@@ -1,0 +1,115 @@
+# 画个啥 · DoodleGuess
+
+一个水彩纸风格的「你画我猜」小网页：抽一张词卡，把它画出来，让本地 AI 猜你画的是什么。
+
+- **100 个中文词卡**，来自 Google QuickDraw 数据集
+- **识别完全在浏览器里完成**：模型随前端打包，画作不上传、不需要 API Key
+- 水彩纸 + 蜡笔手绘的界面，自己画的图标、水彩背景和动效
+- 画作保存在 IndexedDB，可回看、下载、删除
+- 深色「夜桌」模式，跟随系统偏好，也可以手动切换
+- 猜中后可生成分享图，支持系统分享、复制到剪贴板或下载兜底
+- 自由画可以另选一张词卡，作为挑战作品收进画廊
+- 核心逻辑有 Vitest 测试覆盖，`pnpm check` 一条命令跑完 lint、测试和构建
+
+## 快速开始
+
+```bash
+pnpm install
+pnpm dev       # http://localhost:5173
+pnpm test      # Vitest
+pnpm build     # 产物在 dist/，直接静态部署
+pnpm preview   # 预览构建产物
+pnpm check     # lint + test + build
+```
+
+环境：Node 20+、pnpm 11+（`packageManager` 已声明；本项目使用 Node 24 / pnpm 11.5.2 开发）。
+
+## 玩法
+
+1. 首页点「开始画画」，系统随机发一张中文词卡（如「猫」「披萨」「热气球」）。
+2. 在画板上作画，支持 8 色、3 档笔刷、橡皮、撤销 / 重做、清空。
+3. 点「让 AI 猜猜」，AI 给出 Top-3 与把握度；Top-1 命中即算猜中。
+4. 猜中会自动收进画廊；没猜中也可以手动保存，或继续补两笔再猜。
+5. 「自由画」模式没有词卡和倒计时，画什么都可以，AI 仍会给出 Top-3。
+6. 自由画画完可以「存为挑战」：从 100 张词卡里选一个目标，再以挑战作品保存。
+7. 猜中后的结果卡和画廊详情都可以分享：优先调用系统分享，不支持时尝试复制图片，最后回退为下载。
+8. 顶栏的月亮 / 太阳按钮可以在浅色纸张和深色夜桌之间切换，选择会记住。
+
+快捷键：`Ctrl/⌘ + Z` 撤销，`Shift + Ctrl/⌘ + Z` 重做，`E` 橡皮，`B` 画笔，`Enter` 猜测。
+
+## 测试与检查
+
+```bash
+pnpm test       # Vitest：drawing / stats / storage / classifier / theme / share
+pnpm check      # lint + test + build
+```
+
+测试使用 Node 环境；IndexedDB 相关用例通过 `fake-indexeddb` 运行，不依赖浏览器。分享与暗色模式属于浏览器能力，仍建议在真实浏览器中手动验收。
+
+## 识别是怎么做的
+
+没有调用任何云端模型。项目用 QuickDraw 的 28×28 灰度位图训练了一个小型 MLP：
+
+```
+784 → 512 ReLU → 256 ReLU → 100 softmax
+```
+
+- 数据：100 个类别 × 1200 张，来自 [QuickDraw Dataset](https://github.com/googlecreativelab/quickdraw-dataset) 的 `numpy_bitmap`。
+- 预处理：重放笔迹（含橡皮擦）→ 墨迹包围盒 → 等比缩放并居中 → 28×28 灰度。
+- 训练：随机旋转 ±12°、缩放 0.88–1.12、平移 ±2px；Adam + label smoothing 0.05。
+- 导出：int8 逐列量化，权重约 550KB，浏览器内单次推理几毫秒。
+- 指标：留出集 **Top-1 59.4% / Top-5 83.9%**（100 类，见 `training/metrics.json`）；`pnpm verify:model` 在训练未使用的新样本上复核（5 个类别 100 张，Top-1 57% / Top-5 83%）。
+
+### 重新训练（可选）
+
+训练脚本只需要 numpy。推荐用 [uv](https://docs.astral.sh/uv/) 运行；国内网络可加清华 PyPI 镜像：
+
+```bash
+# Windows PowerShell
+$env:UV_DEFAULT_INDEX="https://pypi.tuna.tsinghua.edu.cn/simple"
+uv run --with numpy python training/train.py --samples 1200 --epochs 18
+
+# macOS / Linux
+UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple \
+  uv run --with numpy python training/train.py --samples 1200 --epochs 18
+```
+
+脚本会把每类前 600 张 + 数据集中段的 600 张缓存到 `.cache/quickdraw/`，然后训练并覆盖：
+
+- `public/model/model.json`（标签、层结构、量化 scale、指标）
+- `public/model/weights.bin`（int8 权重 + float32 bias/scale）
+- `training/metrics.json`（每个 epoch 的 Top-1 / Top-5）
+
+> 为什么脚本里设置了 `OPENBLAS_NUM_THREADS=4`？在混合架构 CPU（P 核 + E 核）上，OpenBLAS 默认开太多线程会让这种小矩阵乘法慢一个数量级。
+
+## 项目结构
+
+```
+src/
+├─ screens/       首页、画板、画廊
+├─ components/    画布、工具栏、AI 面板、结果层、弹窗、主题切换、图标
+├─ lib/           分类器、笔迹预处理、IndexedDB、统计、音效、主题、分享
+├─ data/          100 个类别的中英文名与 emoji
+├─ styles/        设计 token、纸纹、水彩、动效、暗色主题、响应式
+└─ assets/fonts/  ZCOOL KuaiLe（OFL）
+training/          数据下载 + 训练 + 导出
+docs/PRD.md        视觉、动效、交互与验收标准
+docs/TODO.md       改进项与完成状态
+vitest.config.ts   单元测试配置
+```
+
+## 数据与素材许可
+
+- **QuickDraw Dataset**：Google Creative Lab，CC BY 4.0。模型是在该数据集上训练的衍生作品。
+- **ZCOOL KuaiLe**：站酷快乐体，SIL Open Font License 1.1，许可文本见 `src/assets/fonts/OFL-LICENSE.txt`。
+- 界面图标、水彩背景、纸纹、胶带与印章均为本项目自绘 / 用 SVG 滤镜生成，随项目使用。
+
+## 浏览器支持
+
+Chrome / Edge / Firefox / Safari 的近期版本。画布使用 Pointer Events 与 `getCoalescedEvents`，支持鼠标、触控笔和手指；识别使用普通 `fetch` + TypedArray，无需 WebGPU。分享图依次尝试 Web Share、剪贴板图片与下载；暗色模式优先读取系统偏好，也支持手动切换并记忆。
+
+## 已知限制
+
+- 模型只认识 100 个类别，画这 100 个词以外的东西时，AI 仍会从这 100 个词里挑一个最像的。
+- 训练数据是简笔画风格；写实画法、复杂背景和文字会降低命中率。
+- 画廊数据存本机浏览器；清理站点数据会一起清空，不做云端同步。

@@ -286,3 +286,25 @@
     height: 190px;
   }
 }
+
+
+.gallery-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: -4px 0 18px;
+}
+
+.gallery-tools span {
+  margin-left: auto;
+  color: var(--ink-soft);
+  font-size: 10px;
+}
+
+@media (max-width: 720px) {
+  .gallery-tools span {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+}

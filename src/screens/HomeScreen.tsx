@@ -110,7 +110,7 @@ export function HomeScreen({
               <dd>{stats.streak}</dd>
             </div>
             <div>
-              <dt>猜中率</dt>
+              <dt title="按每次猜测计算">命中率</dt>
               <dd>{stats.guesses > 0 ? `${successRate(stats)}%` : '—'}</dd>
             </div>
           </dl>

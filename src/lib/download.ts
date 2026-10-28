@@ -9,13 +9,20 @@ function triggerDownload(url: string, filename: string): void {
   link.remove()
 }
 
+export function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  triggerDownload(url, filename)
+  window.setTimeout(() => URL.revokeObjectURL(url), 4000)
+}
+
 export function downloadArtwork(image: string, filename: string): Promise<void> {
   return new Promise((resolve) => {
     const picture = new Image()
     picture.onload = () => {
       const canvas = document.createElement('canvas')
-      canvas.width = 1080
-      canvas.height = 1080
+      // Export at the stored resolution; upscaling adds no real detail.
+      canvas.width = picture.naturalWidth || 720
+      canvas.height = picture.naturalHeight || 720
       const context = canvas.getContext('2d')
       if (!context) {
         resolve()

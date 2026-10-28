@@ -1,6 +1,5 @@
 export const BOARD_SIZE = 1024
 export const PAPER_COLOR = '#FFFDF8'
-export const MAX_HISTORY = 60
 
 /** Alpha below this is treated as faint noise rather than visible ink. */
 export const SKETCH_ALPHA_CUTOFF = 30
@@ -9,6 +8,10 @@ let workingCanvas: HTMLCanvasElement | null = null
 let workingContext: CanvasRenderingContext2D | null = null
 let sampleCanvas: HTMLCanvasElement | null = null
 let sampleContext: CanvasRenderingContext2D | null = null
+let boundsCanvas: HTMLCanvasElement | null = null
+let boundsContext: CanvasRenderingContext2D | null = null
+
+const BOUNDS_WORK_SIZE = 256
 
 function getSketchContexts(): {
   working: HTMLCanvasElement
@@ -138,15 +141,44 @@ export function renderStrokes(
       continue
     }
 
-    for (let index = 1; index < stroke.points.length; index += 1) {
-      const from = stroke.points[index - 1]
-      const to = stroke.points[index]
+    if (stroke.points.length === 2) {
+      const [from, to] = stroke.points
       context.beginPath()
       context.lineWidth = widthFor(stroke, to.pressure)
       context.moveTo(from.x * scale + offsetX, from.y * scale + offsetY)
       context.lineTo(to.x * scale + offsetX, to.y * scale + offsetY)
       context.stroke()
+      continue
     }
+
+    // Quadratic smoothing through midpoints: fewer visible corners when the
+    // pointer delivers sparse events. The raw points still feed the model.
+    let previousX = stroke.points[0].x * scale + offsetX
+    let previousY = stroke.points[0].y * scale + offsetY
+    for (let index = 1; index < stroke.points.length - 1; index += 1) {
+      const point = stroke.points[index]
+      const next = stroke.points[index + 1]
+      const midX = ((point.x + next.x) / 2) * scale + offsetX
+      const midY = ((point.y + next.y) / 2) * scale + offsetY
+      context.beginPath()
+      context.lineWidth = widthFor(stroke, point.pressure)
+      context.moveTo(previousX, previousY)
+      context.quadraticCurveTo(
+        point.x * scale + offsetX,
+        point.y * scale + offsetY,
+        midX,
+        midY,
+      )
+      context.stroke()
+      previousX = midX
+      previousY = midY
+    }
+    const last = stroke.points[stroke.points.length - 1]
+    context.beginPath()
+    context.lineWidth = widthFor(stroke, last.pressure)
+    context.moveTo(previousX, previousY)
+    context.lineTo(last.x * scale + offsetX, last.y * scale + offsetY)
+    context.stroke()
   }
 
   context.restore()
@@ -190,6 +222,9 @@ export function getInkBounds(strokes: Stroke[]): InkBounds | null {
   let points = 0
 
   for (const stroke of strokes) {
+    // Eraser strokes do not add visible ink; including them would let an
+    // eraser far from the drawing distort the crop.
+    if (stroke.tool === 'eraser') continue
     for (const point of stroke.points) {
       minX = Math.min(minX, point.x)
       minY = Math.min(minY, point.y)
@@ -220,11 +255,84 @@ export function getInkBounds(strokes: Stroke[]): InkBounds | null {
 }
 
 /**
+ * Finds the visible ink bounds after replaying erasers, so an eraser stroke
+ * outside the drawing cannot change the crop. Falls back to pen-point bounds
+ * when there is no canvas (e.g. unit tests).
+ */
+export function getVisibleInkBounds(strokes: Stroke[]): InkBounds | null {
+  if (strokes.length === 0) return null
+  if (typeof document === 'undefined') return getInkBounds(strokes)
+
+  if (!boundsCanvas) {
+    boundsCanvas = document.createElement('canvas')
+    boundsCanvas.width = BOUNDS_WORK_SIZE
+    boundsCanvas.height = BOUNDS_WORK_SIZE
+    boundsContext = boundsCanvas.getContext('2d', { willReadFrequently: true })
+  }
+  const context = boundsContext
+  if (!context) return getInkBounds(strokes)
+
+  context.setTransform(1, 0, 0, 1, 0, 0)
+  context.globalCompositeOperation = 'source-over'
+  context.clearRect(0, 0, BOUNDS_WORK_SIZE, BOUNDS_WORK_SIZE)
+  const scale = BOUNDS_WORK_SIZE / BOARD_SIZE
+  renderStrokes(context, strokes, scale)
+
+  const pixels = context.getImageData(
+    0,
+    0,
+    BOUNDS_WORK_SIZE,
+    BOUNDS_WORK_SIZE,
+  ).data
+  let minX = Number.POSITIVE_INFINITY
+  let minY = Number.POSITIVE_INFINITY
+  let maxX = Number.NEGATIVE_INFINITY
+  let maxY = Number.NEGATIVE_INFINITY
+  let visible = false
+
+  for (let y = 0; y < BOUNDS_WORK_SIZE; y += 1) {
+    for (let x = 0; x < BOUNDS_WORK_SIZE; x += 1) {
+      if (pixels[(y * BOUNDS_WORK_SIZE + x) * 4 + 3] <= 8) continue
+      visible = true
+      minX = Math.min(minX, x)
+      minY = Math.min(minY, y)
+      maxX = Math.max(maxX, x)
+      maxY = Math.max(maxY, y)
+    }
+  }
+  if (!visible) return null
+
+  minX /= scale
+  minY /= scale
+  maxX /= scale
+  maxY /= scale
+  const rawWidth = Math.max(maxX - minX, 1)
+  const rawHeight = Math.max(maxY - minY, 1)
+  const padding = Math.max(6, Math.max(rawWidth, rawHeight) * 0.035)
+  minX -= padding
+  minY -= padding
+  maxX += padding
+  maxY += padding
+
+  return {
+    minX,
+    minY,
+    maxX,
+    maxY,
+    width: maxX - minX,
+    height: maxY - minY,
+  }
+}
+
+/**
  * Replays the vector strokes into a 28x28 grayscale sketch, matching the
  * normalized QuickDraw bitmap style: centered, aspect preserved, bold strokes.
  */
 export function strokesToSketch(strokes: Stroke[]): Float32Array | null {
-  const bounds = getInkBounds(strokes)
+  const bounds =
+    typeof document === 'undefined'
+      ? getInkBounds(strokes)
+      : getVisibleInkBounds(strokes)
   if (!bounds) return null
 
   const workingSize = 112
@@ -300,7 +408,7 @@ export function renderArtwork(
   ink.height = size
   const inkContext = ink.getContext('2d')
   if (inkContext) {
-    const bounds = getInkBounds(strokes)
+    const bounds = getVisibleInkBounds(strokes) ?? getInkBounds(strokes)
     if (bounds) {
       const margin = size * 0.1
       const available = size - margin * 2

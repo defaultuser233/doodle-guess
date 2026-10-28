@@ -1,5 +1,8 @@
+import { useRef } from 'react'
 import type { Category } from '../lib/categories'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import type { GuessRecord } from '../lib/types'
+import { DialogPortal } from './DialogPortal'
 import { Icon } from './Icon'
 import { Confetti } from './Confetti'
 
@@ -12,6 +15,7 @@ interface ResultOverlayProps {
   onAgain: () => void
   onGallery: () => void
   onShare: () => void
+  onSave: () => void
   onClose: () => void
 }
 
@@ -24,12 +28,24 @@ export function ResultOverlay({
   onAgain,
   onGallery,
   onShare,
+  onSave,
   onClose,
 }: ResultOverlayProps) {
+  const closeRef = useRef<HTMLButtonElement | null>(null)
+  const panelRef = useRef<HTMLDivElement | null>(null)
+
+  useDialogFocus({
+    open: open && category !== null,
+    onClose,
+    panelRef,
+    initialFocusRef: closeRef,
+  })
+
   if (!open || !category) return null
 
   return (
-    <div
+    <DialogPortal>
+      <div
       className="result-overlay"
       role="dialog"
       aria-modal="true"
@@ -39,8 +55,9 @@ export function ResultOverlay({
       }}
     >
       <Confetti active={open} />
-      <div className="result-card">
+      <div ref={panelRef} className="result-card" tabIndex={-1}>
         <button
+          ref={closeRef}
           type="button"
           className="result-card__close"
           aria-label="关闭结果"
@@ -70,7 +87,15 @@ export function ResultOverlay({
           <p className="result-card__saved">
             <Icon name="check" size={16} /> 已自动收进画廊
           </p>
-        ) : null}
+        ) : (
+          <button
+            type="button"
+            className="btn btn--ghost btn--small result-card__save"
+            onClick={onSave}
+          >
+            保存到画廊
+          </button>
+        )}
         <div className="result-card__actions">
           <button type="button" className="btn btn--primary" onClick={onAgain}>
             <Icon name="refresh" size={18} /> 再来一张
@@ -87,5 +112,6 @@ export function ResultOverlay({
         </span>
       </div>
     </div>
+    </DialogPortal>
   )
 }

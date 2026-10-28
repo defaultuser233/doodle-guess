@@ -3,6 +3,7 @@
   width: 100%;
   max-width: 1320px;
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0 auto;
   padding: 18px clamp(12px, 3vw, 34px) 34px;
 }
@@ -161,6 +162,7 @@
   position: relative;
   width: 100%;
   max-width: min(760px, calc(100vh - 210px));
+  max-width: min(760px, calc(100dvh - 210px));
   margin: 0 auto;
   aspect-ratio: 1 / 1;
   border: 2px solid var(--ink);
@@ -218,10 +220,6 @@
     cell;
 }
 
-.canvas-board__surface.is-disabled {
-  pointer-events: none;
-}
-
 .paper__tape {
   top: 6px;
   z-index: 4;
@@ -267,6 +265,7 @@
   gap: 8px;
   width: 100%;
   max-width: min(760px, calc(100vh - 210px));
+  max-width: min(760px, calc(100dvh - 210px));
   margin: 20px auto 0;
   padding: 9px 12px;
   border: 2px solid var(--ink);
@@ -397,6 +396,7 @@
   flex-direction: column;
   min-height: 560px;
   max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
   overflow: hidden;
   border: 2px solid var(--ink);
   border-radius: var(--radius-hand-alt);
@@ -910,6 +910,7 @@
 
   .paper {
     max-width: min(700px, calc(100vh - 210px));
+    max-width: min(700px, calc(100dvh - 210px));
   }
 }
 

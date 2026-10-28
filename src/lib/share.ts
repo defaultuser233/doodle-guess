@@ -8,12 +8,20 @@ const CORAL = '#F28C6B'
 const SAGE = '#8FBF9F'
 const SKY = '#7FB3D5'
 
-export type ShareOutcome = 'shared' | 'copied' | 'downloaded' | 'failed'
+export type ShareOutcome =
+  | 'shared'
+  | 'copied'
+  | 'downloaded'
+  | 'cancelled'
+  | 'failed'
+
+export type ShareStatus = 'success' | 'near' | 'miss' | 'free'
 
 export const SHARE_MESSAGES: Record<ShareOutcome, string> = {
   shared: '已打开分享',
   copied: '分享图已复制，去粘贴吧',
   downloaded: '分享图已下载',
+  cancelled: '已取消分享',
   failed: '这次没有分享成功',
 }
 
@@ -23,6 +31,7 @@ export interface ShareCardOptions {
   title: string
   confidence: number | null
   seconds: number
+  status: ShareStatus
 }
 
 function roundedPath(
@@ -81,6 +90,7 @@ export async function createShareCard({
   title,
   confidence,
   seconds,
+  status,
 }: ShareCardOptions): Promise<Blob | null> {
   if (typeof document === 'undefined') return null
   if (document.fonts?.ready) {
@@ -158,18 +168,26 @@ export async function createShareCard({
   context.drawImage(picture, 180, 240, 720, 720)
   context.restore()
 
-  // Stamp.
-  context.save()
-  context.translate(900, 178)
-  context.rotate(-0.16)
-  context.strokeStyle = TOMATO
-  context.lineWidth = 4
-  roundedPath(context, -66, -34, 132, 68, 6)
-  context.stroke()
-  context.fillStyle = TOMATO
-  context.font = '400 34px "ZCOOL KuaiLe", "PingFang SC", sans-serif'
-  context.fillText('猜中!', 0, 2)
-  context.restore()
+  // Stamp only when the claim is true.
+  const stamp =
+    status === 'success'
+      ? { label: '猜中!', color: TOMATO }
+      : status === 'near'
+        ? { label: '差一点', color: MUSTARD }
+        : null
+  if (stamp) {
+    context.save()
+    context.translate(900, 178)
+    context.rotate(-0.16)
+    context.strokeStyle = stamp.color
+    context.lineWidth = 4
+    roundedPath(context, -66, -34, 132, 68, 6)
+    context.stroke()
+    context.fillStyle = stamp.color
+    context.font = '400 34px "ZCOOL KuaiLe", "PingFang SC", sans-serif'
+    context.fillText(stamp.label, 0, 2)
+    context.restore()
+  }
 
   context.fillStyle = INK
   context.font = '400 58px "ZCOOL KuaiLe", "PingFang SC", sans-serif'
@@ -178,7 +196,15 @@ export async function createShareCard({
   context.fillStyle = 'rgba(46, 42, 38, 0.66)'
   context.font = '600 28px "PingFang SC", "Microsoft YaHei", sans-serif'
   const confidenceText =
-    confidence === null ? '小猜猜中了' : `AI 的把握 ${Math.round(confidence * 100)}%`
+    status === 'success'
+      ? confidence === null
+        ? '小猜猜中了'
+        : `AI 的把握 ${Math.round(confidence * 100)}%`
+      : status === 'near'
+        ? 'AI 差一点就猜中'
+        : status === 'miss'
+          ? '这次没猜中'
+          : '自由画'
   context.fillText(
     `${confidenceText} · 用时 ${Math.max(1, Math.round(seconds))} 秒`,
     width / 2,
@@ -238,7 +264,7 @@ export async function shareImage(
         })
         return 'shared'
       } catch (error) {
-        if (isAbort(error)) return 'failed'
+        if (isAbort(error)) return 'cancelled'
       }
     }
   }
@@ -275,12 +301,24 @@ export async function shareImage(
 }
 
 export async function shareArtwork(artwork: Artwork): Promise<ShareOutcome> {
+  const near =
+    artwork.targetId !== null &&
+    artwork.guesses.some((guess) => guess.id === artwork.targetId)
+  const status: ShareStatus =
+    artwork.mode === 'free'
+      ? 'free'
+      : artwork.success
+        ? 'success'
+        : near
+          ? 'near'
+          : 'miss'
   const blob = await createShareCard({
     image: artwork.image,
     emoji: artwork.targetEmoji,
     title: artwork.targetZh,
-    confidence: artwork.guesses[0]?.confidence ?? null,
+    confidence: artwork.success ? (artwork.guesses[0]?.confidence ?? null) : null,
     seconds: artwork.durationMs / 1000,
+    status,
   })
   if (!blob) return 'failed'
   return shareImage(blob, `doodle-${artwork.targetId ?? 'free'}.png`)

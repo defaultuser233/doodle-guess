@@ -1,5 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
+import { DialogPortal } from './DialogPortal'
 import { Icon } from './Icon'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import type { Artwork } from '../lib/types'
 
 interface ArtworkModalProps {
@@ -26,16 +28,14 @@ export function ArtworkModal({
   onDelete,
 }: ArtworkModalProps) {
   const closeRef = useRef<HTMLButtonElement | null>(null)
+  const panelRef = useRef<HTMLDivElement | null>(null)
 
-  useEffect(() => {
-    if (!artwork) return
-    closeRef.current?.focus()
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [artwork, onClose])
+  useDialogFocus({
+    open: artwork !== null,
+    onClose,
+    panelRef,
+    initialFocusRef: closeRef,
+  })
 
   if (!artwork) return null
 
@@ -49,17 +49,20 @@ export function ArtworkModal({
         : '自由画'
 
   return (
-    <div
+    <DialogPortal>
+      <div
       className="modal-backdrop"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
     >
       <div
+        ref={panelRef}
         className="artwork-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="artwork-title"
+        tabIndex={-1}
       >
         <button
           ref={closeRef}
@@ -125,5 +128,6 @@ export function ArtworkModal({
         </div>
       </div>
     </div>
+    </DialogPortal>
   )
 }

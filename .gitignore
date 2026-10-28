@@ -14,9 +14,18 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
-docs/
 coverage/
 *.local
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+
+# Local configuration
+.env
+.env.*
+!.env.example
 .cache/
 
 # Editor directories and files

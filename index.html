@@ -3,27 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta
       name="description"
       content="画个啥：抽一张词卡画出来，让本地 AI 猜猜你画的是什么。100 个 QuickDraw 词卡，识别不上传、无广告。"
     />
     <meta name="theme-color" content="#FBF6EA" />
-    <script>
-      try {
-        var savedTheme = localStorage.getItem('doodle-guess-theme-v1')
-        var initialTheme =
-          savedTheme === 'light' || savedTheme === 'dark'
-            ? savedTheme
-            : window.matchMedia('(prefers-color-scheme: dark)').matches
-              ? 'dark'
-              : 'light'
-        document.documentElement.dataset.theme = initialTheme
-        document.documentElement.style.colorScheme = initialTheme
-      } catch (error) {
-        document.documentElement.dataset.theme = 'light'
-      }
-    </script>
+    <script src="./theme-init.js"></script>
     <title>画个啥 · 你画我猜</title>
   </head>
   <body>

@@ -415,6 +415,10 @@
   font-size: 12px;
 }
 
+.result-card__save {
+  margin-top: 8px;
+}
+
 .result-card__saved {
   display: flex;
   align-items: center;

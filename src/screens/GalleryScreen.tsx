@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { ChangeEvent } from 'react'
 import { ArtworkModal } from '../components/ArtworkModal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { GalleryCard } from '../components/GalleryCard'
@@ -6,12 +7,14 @@ import { Icon } from '../components/Icon'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { Toast } from '../components/Toast'
 import { useToast } from '../hooks/useToast'
-import { downloadArtwork } from '../lib/download'
+import { createBackup, parseBackup } from '../lib/backup'
+import { downloadArtwork, downloadBlob } from '../lib/download'
 import { SHARE_MESSAGES, shareArtwork } from '../lib/share'
 import {
   clearArtworks,
   deleteArtwork,
   listArtworks,
+  saveArtwork,
 } from '../lib/storage'
 import type { Theme } from '../lib/theme'
 import type { Artwork } from '../lib/types'
@@ -36,6 +39,7 @@ export function GalleryScreen({
   const [selected, setSelected] = useState<Artwork | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Artwork | null>(null)
   const [confirmClear, setConfirmClear] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const { toast, showToast } = useToast()
 
   const refresh = useCallback(async () => {
@@ -100,6 +104,57 @@ export function GalleryScreen({
     showToast('画廊已清空')
   }
 
+  const handleExportBackup = () => {
+    if (artworks.length === 0) return
+    const created = new Date()
+    const stamp = `${created.getFullYear()}${String(created.getMonth() + 1).padStart(2, '0')}${String(created.getDate()).padStart(2, '0')}`
+    const blob = new Blob(
+      [JSON.stringify(createBackup(artworks), null, 2)],
+      { type: 'application/json' },
+    )
+    downloadBlob(blob, `doodle-guess-backup-${stamp}.json`)
+    showToast('备份已开始下载')
+  }
+
+  const handleImportBackup = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    if (file.size > 20 * 1024 * 1024) {
+      showToast('备份文件太大')
+      return
+    }
+
+    let text: string
+    try {
+      text = await file.text()
+    } catch {
+      showToast('读取备份失败')
+      return
+    }
+    const parsed = parseBackup(text)
+    if (!parsed.ok) {
+      showToast(`导入失败：${parsed.error}`)
+      return
+    }
+
+    let imported = 0
+    for (const artwork of parsed.artworks) {
+      const result = await saveArtwork(artwork)
+      if (result.ok) imported += 1
+    }
+    await refresh()
+    if (imported === 0) {
+      showToast('没有成功导入的作品')
+      return
+    }
+    showToast(
+      `已导入 ${imported} 幅${
+        parsed.skipped > 0 ? `，跳过 ${parsed.skipped} 条无效记录` : ''
+      }`,
+    )
+  }
+
   return (
     <main className="gallery-screen screen">
       <header className="gallery-top">
@@ -147,6 +202,33 @@ export function GalleryScreen({
         </span>
         <span className="gallery-toolbar__line" aria-hidden="true" />
       </p>
+
+      <section className="gallery-tools" aria-label="画廊备份">
+        <button
+          type="button"
+          className="btn btn--ghost btn--small"
+          onClick={handleExportBackup}
+          disabled={loading || artworks.length === 0}
+        >
+          <Icon name="download" size={15} /> 导出备份
+        </button>
+        <button
+          type="button"
+          className="btn btn--ghost btn--small"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={loading}
+        >
+          <Icon name="upload" size={15} /> 导入备份
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={(event) => void handleImportBackup(event)}
+        />
+        <span>JSON 备份包含画作与 AI 结果，不包含模型</span>
+      </section>
 
       {loading ? (
         <div className="gallery-loading" role="status">

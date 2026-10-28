@@ -23,6 +23,7 @@ export interface CanvasState {
   canRedo: boolean
   inkRatio: number
   strokeCount: number
+  penStrokeCount: number
 }
 
 export interface CanvasBoardHandle {
@@ -31,7 +32,6 @@ export interface CanvasBoardHandle {
   clear: () => void
   exportImage: (size?: number) => string
   toSketch: () => Float32Array | null
-  getInkRatio: () => number
 }
 
 interface CanvasBoardProps {
@@ -40,8 +40,6 @@ interface CanvasBoardProps {
   size: number
   onStateChange: (state: CanvasState) => void
   onStrokeStart?: () => void
-  onStrokeEnd?: () => void
-  disabled?: boolean
 }
 
 export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(
@@ -52,8 +50,6 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(
       size,
       onStateChange,
       onStrokeStart,
-      onStrokeEnd,
-      disabled = false,
     },
     ref,
   ) {
@@ -65,7 +61,6 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(
     const scaleRef = useRef(1)
     const stateCallbackRef = useRef(onStateChange)
     const strokeStartRef = useRef(onStrokeStart)
-    const strokeEndRef = useRef(onStrokeEnd)
 
     useEffect(() => {
       stateCallbackRef.current = onStateChange
@@ -73,8 +68,7 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(
 
     useEffect(() => {
       strokeStartRef.current = onStrokeStart
-      strokeEndRef.current = onStrokeEnd
-    }, [onStrokeStart, onStrokeEnd])
+    }, [onStrokeStart])
 
     const redraw = useCallback(() => {
       const canvas = canvasRef.current
@@ -93,6 +87,9 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(
         canRedo: redoRef.current.length > 0,
         inkRatio: sketchInkRatio(sketch),
         strokeCount: strokesRef.current.length,
+        penStrokeCount: strokesRef.current.filter(
+          (stroke) => stroke.tool === 'pen',
+        ).length,
       })
     }, [])
 
@@ -138,7 +135,6 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(
     }, [])
 
     const handlePointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
-      if (disabled) return
       if (event.pointerType === 'mouse' && event.button !== 0) return
       event.preventDefault()
       const canvas = canvasRef.current
@@ -204,7 +200,6 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(
       }
       redraw()
       syncState()
-      strokeEndRef.current?.()
     }
 
     const undo = useCallback(() => {
@@ -245,23 +240,16 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(
       [],
     )
 
-    const getInkRatio = useCallback(
-      () => sketchInkRatio(strokesToSketch(strokesRef.current)),
-      [],
-    )
-
     useImperativeHandle(
       ref,
-      () => ({ undo, redo, clear, exportImage, toSketch, getInkRatio }),
-      [undo, redo, clear, exportImage, toSketch, getInkRatio],
+      () => ({ undo, redo, clear, exportImage, toSketch }),
+      [undo, redo, clear, exportImage, toSketch],
     )
 
     return (
       <canvas
         ref={canvasRef}
-        className={`canvas-board__surface canvas-board__surface--${tool}${
-          disabled ? ' is-disabled' : ''
-        }`}
+        className={`canvas-board__surface canvas-board__surface--${tool}`}
         aria-label="画板，用鼠标或手指作画"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}

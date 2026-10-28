@@ -51,6 +51,20 @@ describe('drawing helpers', () => {
     expect(bounds?.height).toBeCloseTo(214)
   })
 
+  it('ignores eraser strokes when computing fallback bounds', () => {
+    const eraser: Stroke = {
+      tool: 'eraser',
+      color: '#000000',
+      size: 80,
+      points: [{ x: 900, y: 900, pressure: 0.5 }],
+    }
+    const bounds = getInkBounds([stroke(100, 100), eraser])
+    expect(bounds?.minX).toBe(94)
+    expect(bounds?.maxX).toBe(106)
+    expect(bounds?.minY).toBe(94)
+    expect(bounds?.maxY).toBe(106)
+  })
+
   it('computes ink ratio from the shared alpha cutoff', () => {
     const empty = new Float32Array(784)
     expect(sketchInkRatio(null)).toBe(0)

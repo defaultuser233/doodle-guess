@@ -10,6 +10,7 @@ import { ThemeToggle } from '../components/ThemeToggle'
 import { Toast } from '../components/Toast'
 import { WordCard } from '../components/WordCard'
 import { findCategory, type Category } from '../lib/categories'
+import { hasOpenDialog } from '../lib/dialogStack'
 import { loadClassifier } from '../lib/classifier'
 import type { Theme } from '../lib/theme'
 import {
@@ -77,9 +78,16 @@ export function DrawScreen({
   const canvasRef = useRef<CanvasBoardHandle | null>(null)
   const guessPanelRef = useRef<HTMLElement | null>(null)
   const [startedAt] = useState(() => Date.now())
+  const deadlineRef = useRef(startedAt + ROUND_SECONDS * 1000)
   const savedRef = useRef(false)
+  const savingRef = useRef(false)
   const busyRef = useRef(false)
   const autoGuessRef = useRef(false)
+  const handleGuessRef = useRef<(auto?: boolean) => Promise<void>>(
+    async () => undefined,
+  )
+  const phaseRef = useRef<GuessPhase>('idle')
+  const modelStateRef = useRef<ModelState>('loading')
   const lastStrokeCountRef = useRef(0)
   const sharingRef = useRef(false)
 
@@ -91,6 +99,7 @@ export function DrawScreen({
     canRedo: false,
     inkRatio: 0,
     strokeCount: 0,
+    penStrokeCount: 0,
   })
   const [phase, setPhase] = useState<GuessPhase>('idle')
   const [guesses, setGuesses] = useState<GuessRecord[]>([])
@@ -130,14 +139,6 @@ export function DrawScreen({
       .catch(() => setModelState('error'))
   }, [])
 
-  useEffect(() => {
-    if (mode !== 'challenge' || successOpen) return
-    const timer = window.setInterval(() => {
-      setSecondsLeft((current) => (current > 0 ? current - 1 : 0))
-    }, 1000)
-    return () => window.clearInterval(timer)
-  }, [mode, successOpen])
-
   const handleCanvasState = useCallback((next: CanvasState) => {
     if (next.strokeCount !== lastStrokeCountRef.current) {
       lastStrokeCountRef.current = next.strokeCount
@@ -155,11 +156,11 @@ export function DrawScreen({
       success: boolean,
       options: PersistOptions = {},
     ) => {
-      if (savedRef.current) return
+      if (savedRef.current) return true
+      if (savingRef.current) return false
       const canvas = canvasRef.current
-      if (!canvas) return
-      savedRef.current = true
-      setSaved(true)
+      if (!canvas) return false
+      savingRef.current = true
       const target = options.target ?? category
       const artwork: Artwork = {
         id: makeArtworkId(),
@@ -177,9 +178,29 @@ export function DrawScreen({
             : Date.now() - startedAt,
         origin: options.origin ?? (mode === 'challenge' ? 'play' : 'free'),
       }
-      await measureAsync('storage.saveArtwork', () => saveArtwork(artwork))
-      onSaved()
-      showToast(options.message ?? '已收进画廊')
+      try {
+        const result = await measureAsync('storage.saveArtwork', () =>
+          saveArtwork(artwork),
+        )
+        if (!result.ok) {
+          savedRef.current = false
+          setSaved(false)
+          showToast('没存进去，可能是浏览器存储已满')
+          return false
+        }
+        savedRef.current = true
+        setSaved(true)
+        onSaved()
+        const message = options.message ?? '已收进画廊'
+        showToast(
+          result.trimmed > 0
+            ? `${message}，已清理最旧的 ${result.trimmed} 幅`
+            : message,
+        )
+        return true
+      } finally {
+        savingRef.current = false
+      }
     },
     [category, mode, onSaved, showToast, startedAt],
   )
@@ -214,6 +235,7 @@ export function DrawScreen({
         title: category.zh,
         confidence: successGuess?.confidence ?? null,
         seconds: elapsedSeconds,
+        status: 'success',
       })
       if (!blob) {
         showToast('分享图生成失败，请再试一次')
@@ -308,12 +330,47 @@ export function DrawScreen({
   )
 
   useEffect(() => {
+    phaseRef.current = phase
+  }, [phase])
+
+  useEffect(() => {
+    modelStateRef.current = modelState
+  }, [modelState])
+
+  useEffect(() => {
+    handleGuessRef.current = handleGuess
+  }, [handleGuess])
+
+  useEffect(() => {
     if (mode !== 'challenge' || successOpen) return
-    if (secondsLeft > 0 || autoGuessRef.current) return
-    if (phase === 'thinking' || phase === 'done') return
-    autoGuessRef.current = true
-    void handleGuess(true)
-  }, [handleGuess, mode, phase, secondsLeft, successOpen])
+    // The absolute deadline keeps the countdown honest even when the tab is
+    // throttled or the interval is delayed.
+    const tick = () => {
+      const remaining = Math.max(
+        0,
+        Math.ceil((deadlineRef.current - Date.now()) / 1000),
+      )
+      setSecondsLeft(remaining)
+      if (
+        remaining === 0 &&
+        !autoGuessRef.current &&
+        modelStateRef.current === 'ready' &&
+        phaseRef.current !== 'thinking' &&
+        phaseRef.current !== 'done'
+      ) {
+        autoGuessRef.current = true
+        void handleGuessRef.current(true)
+      }
+    }
+    tick()
+    const timer = window.setInterval(tick, 250)
+    const onVisibility = () => tick()
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [mode, successOpen])
 
   useEffect(() => {
     if (phase !== 'thinking' && phase !== 'done') return
@@ -349,7 +406,7 @@ export function DrawScreen({
       ) {
         return
       }
-      if (successOpen || pendingAction !== null) return
+      if (hasOpenDialog() || successOpen || pendingAction !== null) return
 
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
         event.preventDefault()
@@ -509,7 +566,7 @@ export function DrawScreen({
               onStrokeStart={() => playSound('stroke')}
             />
             <span className="paper__hint" aria-hidden="true">
-              {canvasState.strokeCount === 0
+              {canvasState.penStrokeCount === 0
                 ? '从这里开始画'
                 : mode === 'challenge'
                   ? '画得像不像，都没关系'
@@ -548,7 +605,7 @@ export function DrawScreen({
           canGuess={canGuess}
           modelState={modelState}
           saved={saved}
-          strokeCount={canvasState.strokeCount}
+          penStrokeCount={canvasState.penStrokeCount}
           onGuess={() => void handleGuess()}
           onRetryModel={retryModel}
           onSave={() => void persist(guesses, false)}
@@ -586,6 +643,7 @@ export function DrawScreen({
         onAgain={onRestart}
         onGallery={onGallery}
         onShare={() => void shareResultCard()}
+        onSave={() => void persist(guesses, true)}
         onClose={() => setSuccessOpen(false)}
       />
 

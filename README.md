@@ -9,7 +9,10 @@
 - 深色「夜桌」模式，跟随系统偏好，也可以手动切换
 - 猜中后可生成分享图，支持系统分享、复制到剪贴板或下载兜底
 - 自由画可以另选一张词卡，作为挑战作品收进画廊
-- 核心逻辑有 Vitest 测试覆盖，`pnpm check` 一条命令跑完 lint、测试和构建
+- 核心逻辑有 Vitest + Playwright 冒烟覆盖，`pnpm check` 一条命令跑完 lint、单测和构建
+- 可安装为 PWA：首次加载后离线可用，模型和字体由 Service Worker 缓存
+- 画板笔迹使用二次贝塞尔平滑；识别的仍是原始笔迹点
+- 画廊支持 JSON 备份 / 恢复，换设备或清缓存前可以先导出
 
 ## 快速开始
 
@@ -17,12 +20,26 @@
 pnpm install
 pnpm dev       # http://localhost:5173
 pnpm test      # Vitest
+pnpm test:e2e  # Playwright 冒烟（使用本机 Edge，自动启动 5273 端口）
 pnpm build     # 产物在 dist/，直接静态部署
 pnpm preview   # 预览构建产物
-pnpm check     # lint + test + build
+pnpm check     # lint + coverage + build
 ```
 
-环境：Node 20+、pnpm 11+（`packageManager` 已声明；本项目使用 Node 24 / pnpm 11.5.2 开发）。
+环境：Node 22.12+、pnpm 11+（`packageManager` 已声明；本项目使用 Node 24 / pnpm 11.5.2 开发）。
+
+## 离线 / 安装
+
+```bash
+pnpm build
+pnpm preview
+```
+
+构建产物会注册 Service Worker，并预缓存页面、模型、字体和图标（约 1MB）。首次加载完成后断网刷新也能继续玩，也可以从浏览器地址栏安装为应用。`pnpm dev` 不启用 Service Worker；PWA 图标可用 `pnpm generate:icons` 重新生成。
+
+## 安全头
+
+生产构建会在 `<head>` 注入 CSP（`script-src 'self'`，主题初始化脚本已外置）；`public/_headers` 提供 Netlify 风格的 CSP、`X-Content-Type-Options`、`Referrer-Policy`、`Permissions-Policy` 和 `X-Frame-Options`。其他静态托管平台可在服务器配置同样的响应头。
 
 ## 玩法
 
@@ -40,11 +57,16 @@ pnpm check     # lint + test + build
 ## 测试与检查
 
 ```bash
-pnpm test       # Vitest：drawing / stats / storage / classifier / theme / share
-pnpm check      # lint + test + build
+pnpm test       # Vitest：drawing / stats / storage / classifier / theme / share / backup
+pnpm test:coverage  # 覆盖率门槛（核心 lib 模块，行覆盖 ≥60%）
+pnpm test:e2e   # Playwright：画 → 猜 → 存 → 画廊 → 弹窗 Esc / 备份恢复
+pnpm generate:icons  # 用本机 Edge 重新生成 PWA 图标
+pnpm check      # lint + coverage + build
 ```
 
-测试使用 Node 环境；IndexedDB 相关用例通过 `fake-indexeddb` 运行，不依赖浏览器。分享与暗色模式属于浏览器能力，仍建议在真实浏览器中手动验收。
+`test:e2e` 通过 `playwright.config.ts` 使用本机 Microsoft Edge（`channel: 'msedge'`），并自动启动一个独立的 5273 端口开发服务器；不下载额外浏览器。其他系统可把 `channel` 改成 `chrome` 或安装 Playwright Chromium。
+
+测试使用 Node 环境；IndexedDB 相关用例通过 `fake-indexeddb` 运行，不依赖浏览器。Canvas / 分享 / 音频 / 弹窗等浏览器能力由 Playwright 冒烟覆盖；覆盖率门槛聚焦纯逻辑模块。
 
 ## 识别是怎么做的
 
@@ -54,7 +76,7 @@ pnpm check      # lint + test + build
 784 → 512 ReLU → 256 ReLU → 100 softmax
 ```
 
-- 数据：100 个类别 × 1200 张，来自 [QuickDraw Dataset](https://github.com/googlecreativelab/quickdraw-dataset) 的 `numpy_bitmap`。
+- 数据：100 个类别 × 1200 张（过滤低墨量后约 108,000 张训练），来自 [QuickDraw Dataset](https://github.com/googlecreativelab/quickdraw-dataset) 的 `numpy_bitmap`。
 - 预处理：重放笔迹（含橡皮擦）→ 墨迹包围盒 → 等比缩放并居中 → 28×28 灰度。
 - 训练：随机旋转 ±12°、缩放 0.88–1.12、平移 ±2px；Adam + label smoothing 0.05。
 - 导出：int8 逐列量化，权重约 550KB，浏览器内单次推理几毫秒。

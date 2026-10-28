@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { CATEGORIES, type Category } from '../lib/categories'
+import { useDialogFocus } from '../hooks/useDialogFocus'
+import { DialogPortal } from './DialogPortal'
 import { Icon } from './Icon'
 
 interface CategoryPickerProps {
@@ -11,32 +13,19 @@ interface CategoryPickerProps {
 export function CategoryPicker({ open, onClose, onPick }: CategoryPickerProps) {
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement | null>(null)
-  const onCloseRef = useRef(onClose)
-
-  useEffect(() => {
-    onCloseRef.current = onClose
-  }, [onClose])
-
-  useEffect(() => {
-    if (!open) return
-    const timer = window.setTimeout(() => inputRef.current?.focus(), 60)
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setQuery('')
-        onCloseRef.current()
-      }
-    }
-    window.addEventListener('keydown', handleKey)
-    return () => {
-      window.clearTimeout(timer)
-      window.removeEventListener('keydown', handleKey)
-    }
-  }, [open])
+  const panelRef = useRef<HTMLElement | null>(null)
 
   const closePicker = () => {
     setQuery('')
     onClose()
   }
+
+  useDialogFocus({
+    open,
+    onClose: closePicker,
+    panelRef,
+    initialFocusRef: inputRef,
+  })
 
   const pickCategory = (category: Category) => {
     setQuery('')
@@ -57,17 +46,20 @@ export function CategoryPicker({ open, onClose, onPick }: CategoryPickerProps) {
   if (!open) return null
 
   return (
-    <div
+    <DialogPortal>
+      <div
       className="modal-backdrop"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) closePicker()
       }}
     >
       <section
+        ref={panelRef}
         className="category-picker"
         role="dialog"
         aria-modal="true"
         aria-labelledby="category-picker-title"
+        tabIndex={-1}
       >
         <button
           type="button"
@@ -97,7 +89,7 @@ export function CategoryPicker({ open, onClose, onPick }: CategoryPickerProps) {
           <span>{String(filtered.length).padStart(2, '0')}</span>
         </label>
 
-        <div className="category-picker__list" role="list">
+        <div className="category-picker__list" role="group" aria-label="词卡列表">
           {filtered.map((category) => (
             <button
               key={category.id}
@@ -118,5 +110,6 @@ export function CategoryPicker({ open, onClose, onPick }: CategoryPickerProps) {
         </div>
       </section>
     </div>
+    </DialogPortal>
   )
 }

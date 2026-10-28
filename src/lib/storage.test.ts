@@ -87,15 +87,39 @@ describe('storage', () => {
   })
 
   it('keeps only the newest 100 artworks', async () => {
+    let lastResult: Awaited<ReturnType<typeof saveArtwork>> | null = null
     for (let index = 0; index < 101; index += 1) {
-      await saveArtwork(artwork(index))
+      lastResult = await saveArtwork(artwork(index))
     }
 
     const list = await listArtworks()
     expect(list).toHaveLength(100)
     expect(list.some((item) => item.id === 'art-000')).toBe(false)
     expect(list[0].id).toBe('art-100')
+    expect(lastResult?.ok).toBe(true)
+    expect(lastResult?.trimmed).toBe(1)
   }, 15000)
+
+  it('reports a failed save instead of pretending it worked', async () => {
+    vi.resetModules()
+    vi.stubGlobal('indexedDB', undefined)
+    vi.stubGlobal('localStorage', {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error('quota exceeded')
+      },
+      removeItem: () => undefined,
+      clear: () => undefined,
+      key: () => null,
+      length: 0,
+    })
+
+    const fallback = await import('./storage')
+    const result = await fallback.saveArtwork(artwork(1))
+
+    expect(result.ok).toBe(false)
+    expect(result.reason).toBe('storage-unavailable')
+  })
 
   it('falls back to localStorage when IndexedDB is unavailable', async () => {
     vi.resetModules()

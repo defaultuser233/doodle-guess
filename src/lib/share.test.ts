@@ -68,8 +68,21 @@ describe('shareImage', () => {
     expect(appendChild).toHaveBeenCalledTimes(1)
   })
 
+  it('reports a cancelled system share separately', async () => {
+    const share = vi.fn(async () => {
+      throw new DOMException('cancelled', 'AbortError')
+    })
+    vi.stubGlobal('navigator', {
+      share,
+      canShare: () => true,
+    })
+
+    await expect(shareImage(blob, 'doodle-cat.png')).resolves.toBe('cancelled')
+  })
+
   it('provides a message for every outcome', () => {
     expect(Object.keys(SHARE_MESSAGES).sort()).toEqual([
+      'cancelled',
       'copied',
       'downloaded',
       'failed',

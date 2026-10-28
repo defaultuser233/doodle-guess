@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+vi.mock('./categories', () => ({
+  CATEGORIES: [{ id: 'cat' }, { id: 'dog' }],
+}))
+
 const INPUT = 784
 const OUTPUT = 2
 const WEIGHT_BYTES = INPUT * OUTPUT
@@ -37,8 +41,8 @@ function makeWeights(): ArrayBuffer {
   return buffer
 }
 
-function successResponse(): Response {
-  return new Response(JSON.stringify(meta), {
+function successResponse(payload = meta): Response {
+  return new Response(JSON.stringify(payload), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   })
@@ -88,6 +92,20 @@ describe('classifier', () => {
     expect(() => classifier.predict(new Float32Array(10))).toThrow(
       'sketch must be 28x28',
     )
+  })
+
+  it('rejects labels that do not match the current word cards', async () => {
+    const mismatched = { ...meta, labels: ['cat', 'fish'] }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) =>
+        String(input).endsWith('model.json')
+          ? successResponse(mismatched)
+          : weightsResponse(),
+      ),
+    )
+    const { loadClassifier } = await import('./classifier')
+    await expect(loadClassifier()).rejects.toThrow('模型标签与词卡数据不一致')
   })
 
   it('resets the singleton promise after a failed load so retry works', async () => {

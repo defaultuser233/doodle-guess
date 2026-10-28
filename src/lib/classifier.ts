@@ -1,3 +1,5 @@
+import { CATEGORIES } from './categories'
+
 export interface Prediction {
   id: string
   confidence: number
@@ -114,7 +116,6 @@ class QuickDrawClassifier implements Classifier {
 }
 
 let classifierPromise: Promise<QuickDrawClassifier> | null = null
-let loadedClassifier: QuickDrawClassifier | null = null
 
 async function initialize(): Promise<QuickDrawClassifier> {
   const base = import.meta.env.BASE_URL
@@ -136,8 +137,20 @@ async function initialize(): Promise<QuickDrawClassifier> {
     throw new Error('invalid model metadata')
   }
 
-  loadedClassifier = new QuickDrawClassifier(meta, weights)
-  return loadedClassifier
+  const outputSize = meta.layers[meta.layers.length - 1]?.out
+  if (!outputSize || meta.labels.length !== outputSize) {
+    throw new Error('模型输出维度与标签数量不一致')
+  }
+  const modelLabels = new Set(meta.labels)
+  const categoryIds = new Set(CATEGORIES.map((category) => category.id))
+  if (
+    modelLabels.size !== categoryIds.size ||
+    [...categoryIds].some((id) => !modelLabels.has(id))
+  ) {
+    throw new Error('模型标签与词卡数据不一致，请更新模型')
+  }
+
+  return new QuickDrawClassifier(meta, weights)
 }
 
 export function loadClassifier(): Promise<QuickDrawClassifier> {
@@ -150,6 +163,3 @@ export function loadClassifier(): Promise<QuickDrawClassifier> {
   return classifierPromise
 }
 
-export function getLoadedClassifier(): QuickDrawClassifier | null {
-  return loadedClassifier
-}

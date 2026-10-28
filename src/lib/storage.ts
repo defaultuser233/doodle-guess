@@ -6,6 +6,13 @@ const MAX_ARTWORKS = 100
 const MAX_FALLBACK_ARTWORKS = 10
 const FALLBACK_KEY = 'doodle-guess-artworks-fallback-v1'
 
+export interface SaveArtworkResult {
+  ok: boolean
+  /** Number of oldest artworks removed to respect the gallery cap. */
+  trimmed: number
+  reason?: 'storage-unavailable' | 'write-failed'
+}
+
 let databasePromise: Promise<IDBDatabase | null> | null = null
 
 function getDatabase(): Promise<IDBDatabase | null> {
@@ -57,15 +64,52 @@ function readFallback(): Artwork[] {
   }
 }
 
-function writeFallback(artworks: Artwork[]): void {
+function writeFallback(artworks: Artwork[]): { ok: boolean; trimmed: number } {
   try {
-    const trimmed = [...artworks]
-      .sort((left, right) => right.createdAt - left.createdAt)
-      .slice(0, MAX_FALLBACK_ARTWORKS)
-    localStorage.setItem(FALLBACK_KEY, JSON.stringify(trimmed))
+    const sorted = [...artworks].sort(
+      (left, right) => right.createdAt - left.createdAt,
+    )
+    const trimmed = Math.max(0, sorted.length - MAX_FALLBACK_ARTWORKS)
+    localStorage.setItem(
+      FALLBACK_KEY,
+      JSON.stringify(sorted.slice(0, MAX_FALLBACK_ARTWORKS)),
+    )
+    return { ok: true, trimmed }
   } catch {
-    // Storage is full or unavailable; the artwork simply will not persist.
+    return { ok: false, trimmed: 0 }
   }
+}
+
+async function trimOldArtworks(database: IDBDatabase): Promise<number> {
+  const countTransaction = database.transaction(STORE_NAME, 'readonly')
+  const total = await requestResult(
+    countTransaction.objectStore(STORE_NAME).count(),
+  )
+  const excess = Math.max(0, total - MAX_ARTWORKS)
+  if (excess === 0) return 0
+
+  const transaction = database.transaction(STORE_NAME, 'readwrite')
+  const store = transaction.objectStore(STORE_NAME)
+  const index = store.index('createdAt')
+
+  await new Promise<void>((resolve, reject) => {
+    let remaining = excess
+    // openKeyCursor never deserializes the image payload.
+    const request = index.openKeyCursor()
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      const cursor = request.result
+      if (!cursor || remaining <= 0) {
+        resolve()
+        return
+      }
+      store.delete(cursor.primaryKey)
+      remaining -= 1
+      cursor.continue()
+    }
+  })
+  await transactionDone(transaction)
+  return excess
 }
 
 export async function listArtworks(): Promise<Artwork[]> {
@@ -83,31 +127,37 @@ export async function listArtworks(): Promise<Artwork[]> {
   }
 }
 
-export async function saveArtwork(artwork: Artwork): Promise<void> {
+export async function saveArtwork(
+  artwork: Artwork,
+): Promise<SaveArtworkResult> {
   const database = await getDatabase()
   if (!database) {
-    const existing = readFallback().filter((item) => item.id !== artwork.id)
-    writeFallback([artwork, ...existing])
-    return
+    const fallback = writeFallback([
+      artwork,
+      ...readFallback().filter((item) => item.id !== artwork.id),
+    ])
+    return fallback.ok
+      ? { ok: true, trimmed: fallback.trimmed }
+      : { ok: false, trimmed: 0, reason: 'storage-unavailable' }
   }
 
   try {
     const transaction = database.transaction(STORE_NAME, 'readwrite')
-    const store = transaction.objectStore(STORE_NAME)
-    store.put(artwork)
+    transaction.objectStore(STORE_NAME).put(artwork)
     await transactionDone(transaction)
-
-    const all = await listArtworks()
-    if (all.length > MAX_ARTWORKS) {
-      const extra = all.slice(MAX_ARTWORKS)
-      const cleanup = database.transaction(STORE_NAME, 'readwrite')
-      const cleanupStore = cleanup.objectStore(STORE_NAME)
-      for (const item of extra) cleanupStore.delete(item.id)
-      await transactionDone(cleanup)
-    }
   } catch {
-    const existing = readFallback().filter((item) => item.id !== artwork.id)
-    writeFallback([artwork, ...existing])
+    // Do not silently copy to localStorage here: the gallery reads from
+    // IndexedDB whenever it is available, so that copy would be invisible.
+    return { ok: false, trimmed: 0, reason: 'write-failed' }
+  }
+
+  try {
+    const trimmed = await trimOldArtworks(database)
+    return { ok: true, trimmed }
+  } catch {
+    // The artwork itself was written; a failed cleanup must not turn a
+    // successful save into a false failure.
+    return { ok: true, trimmed: 0 }
   }
 }
 
@@ -142,8 +192,14 @@ export async function clearArtworks(): Promise<void> {
 }
 
 export async function countArtworks(): Promise<number> {
-  const artworks = await listArtworks()
-  return artworks.length
+  const database = await getDatabase()
+  if (!database) return readFallback().length
+  try {
+    const transaction = database.transaction(STORE_NAME, 'readonly')
+    return await requestResult(transaction.objectStore(STORE_NAME).count())
+  } catch {
+    return readFallback().length
+  }
 }
 
 export function makeArtworkId(): string {

@@ -23,6 +23,20 @@ import type { GameMode, Stats } from './lib/types'
 
 type Screen = 'home' | 'draw' | 'gallery'
 
+let sessionSequence = 0
+
+function nextSessionId(): number {
+  sessionSequence += 1
+  return sessionSequence
+}
+
+function screenFromHash(): Screen {
+  if (typeof window === 'undefined') return 'home'
+  if (window.location.hash === '#gallery') return 'gallery'
+  if (window.location.hash === '#draw') return 'draw'
+  return 'home'
+}
+
 interface Session {
   id: number
   mode: GameMode
@@ -30,7 +44,7 @@ interface Session {
 }
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>('home')
+  const [screen, setScreen] = useState<Screen>(() => screenFromHash())
   const [session, setSession] = useState<Session | null>(null)
   const [stats, setStats] = useState<Stats>(() => loadStats())
   const [galleryCount, setGalleryCount] = useState(0)
@@ -54,9 +68,26 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    void loadClassifier().catch(() => {
-      // The draw screen surfaces the error and offers a retry.
-    })
+    let cancelled = false
+    const prefetch = () => {
+      if (cancelled) return
+      void loadClassifier().catch(() => {
+        // The draw screen surfaces the error and offers a retry.
+      })
+    }
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
+      cancelIdleCallback?: (handle: number) => void
+    }
+    const usedIdleCallback = typeof idleWindow.requestIdleCallback === 'function'
+    const handle = usedIdleCallback
+      ? idleWindow.requestIdleCallback!(prefetch, { timeout: 3000 })
+      : window.setTimeout(prefetch, 1400)
+    return () => {
+      cancelled = true
+      if (usedIdleCallback) idleWindow.cancelIdleCallback?.(handle)
+      else window.clearTimeout(handle)
+    }
   }, [])
 
   const refreshGalleryCount = useCallback(() => {
@@ -75,18 +106,46 @@ export default function App() {
 
   const startGame = useCallback((mode: GameMode) => {
     setSession({
-      id: Date.now(),
+      id: nextSessionId(),
       mode,
       category: mode === 'challenge' ? pickCategory() : null,
     })
     setScreen('draw')
   }, [])
 
+  useEffect(() => {
+    if (screen === 'draw' && !session) startGame('challenge')
+  }, [screen, session, startGame])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const base = `${window.location.pathname}${window.location.search}`
+    const desired = screen === 'home' ? '' : `#${screen}`
+    if (window.location.hash === desired) return
+    window.history.pushState(null, '', `${base}${desired}`)
+  }, [screen])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const handlePopState = () => {
+      const next = screenFromHash()
+      if (next === 'draw') {
+        if (session) setScreen('draw')
+        else startGame('challenge')
+      } else {
+        setScreen(next)
+      }
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [session, startGame])
+
+
   const restart = useCallback(() => {
     setSession((current) => {
       if (!current) return current
       return {
-        id: Date.now(),
+        id: nextSessionId(),
         mode: current.mode,
         category:
           current.mode === 'challenge'

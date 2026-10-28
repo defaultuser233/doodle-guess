@@ -16,8 +16,7 @@ interface GuessPanelProps {
   canGuess: boolean
   modelState: ModelState
   saved: boolean
-  strokeCount: number
-  offTrack?: boolean
+  penStrokeCount: number
   panelRef?: RefObject<HTMLElement | null>
   onGuess: () => void
   onRetryModel: () => void
@@ -104,8 +103,7 @@ export function GuessPanel({
   canGuess,
   modelState,
   saved,
-  strokeCount,
-  offTrack = false,
+  penStrokeCount,
   panelRef,
   onGuess,
   onRetryModel,
@@ -123,8 +121,8 @@ export function GuessPanel({
   if (modelState === 'error') hint = '识别模型没加载出来'
   if (modelState === 'ready' && !canGuess) {
     hint =
-      strokeCount > 0
-        ? `已画 ${strokeCount} 笔 · 再补几笔，AI 才看得清`
+      penStrokeCount > 0
+        ? `已画 ${penStrokeCount} 笔 · 再补几笔，AI 才看得清`
         : '多画几笔，AI 才看得清'
   }
   if (phase === 'done') hint = '补两笔，再猜一次'
@@ -147,6 +145,26 @@ export function GuessPanel({
       </header>
 
       <div className="guess-panel__body">
+        <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          {phase === 'thinking'
+            ? '小猜正在看你的画。'
+            : phase === 'done' && guesses.length > 0
+              ? `我猜是${guesses
+                  .map(
+                    (guess, index) =>
+                      `${index === 0 ? '，最像' : '，其次'}${guess.zh}，把握 ${Math.round(guess.confidence * 100)}%`,
+                  )
+                  .join('')}。${
+                  result === 'success'
+                    ? '猜中了。'
+                    : result === 'near'
+                      ? `目标词排在第 ${targetRank} 位。`
+                      : result === 'miss'
+                        ? '这次没猜中。'
+                        : ''
+                }`
+              : ''}
+        </p>
         {phase === 'idle' && modelState !== 'error' ? (
           <div className="guess-idle">
             <div className="guess-idle__doodle" aria-hidden="true">
@@ -231,11 +249,6 @@ export function GuessPanel({
                   </button>
                 ) : null}
               </div>
-            ) : null}
-            {offTrack ? (
-              <p className="guess-results__tip">
-                提示：目标词是「{target?.zh}」，AI 可能还没抓住特征。
-              </p>
             ) : null}
           </div>
         ) : null}

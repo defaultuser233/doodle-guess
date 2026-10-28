@@ -17,6 +17,7 @@ interface GuessPanelProps {
   modelState: ModelState
   saved: boolean
   penStrokeCount: number
+  showDirectSave?: boolean
   panelRef?: RefObject<HTMLElement | null>
   onGuess: () => void
   onRetryModel: () => void
@@ -104,6 +105,7 @@ export function GuessPanel({
   modelState,
   saved,
   penStrokeCount,
+  showDirectSave = false,
   panelRef,
   onGuess,
   onRetryModel,
@@ -173,6 +175,16 @@ export function GuessPanel({
             </div>
             <p>我准备好了。</p>
             <small>你画你的，我负责认真猜。</small>
+            {showDirectSave && penStrokeCount > 0 ? (
+              <button
+                type="button"
+                className="btn btn--paper btn--small guess-idle__save"
+                onClick={onSave}
+                disabled={saved}
+              >
+                {saved ? '已收进画廊 ✓' : '直接保存这幅'}
+              </button>
+            ) : null}
           </div>
         ) : null}
 

@@ -77,6 +77,7 @@ pnpm preview
 - [x] Playwright 冒烟：画 → 猜 → 存 → 画廊 → 嵌套弹窗 Esc（`pnpm test:e2e`）。
 - [x] PWA / 离线：Service Worker 预缓存页面、模型、字体；断网刷新与模型加载已验证。
 - [x] 画廊 JSON 备份 / 恢复：导出、清空、导入的 Playwright 流程通过。
+- [x] 自由画未猜测时可直接保存（`直接保存这幅`）。
 - [x] 画布二次贝塞尔平滑（分类器仍使用原始点）。
 - [x] 生产 CSP + `public/_headers` 安全头；CSP 下加载、推理、离线均已验证。
 - [x] Vitest 覆盖率门禁：核心 lib 行覆盖 94.86%，阈值 60%。

@@ -73,9 +73,7 @@ test('exports, clears, and restores the gallery backup', async ({ page }) => {
   await expect(page.locator('canvas[aria-label*="画板"]')).toBeVisible()
   await drawCircle(page)
 
-  await page.getByRole('button', { name: /让 AI 猜猜/ }).click()
-  await expect(page.locator('.guess-row')).toHaveCount(3)
-  await page.getByRole('button', { name: '保存这幅' }).click()
+  await page.getByRole('button', { name: '直接保存这幅' }).click()
   await expect(page.getByRole('button', { name: /已收进画廊/ })).toBeVisible()
 
   await page.getByRole('button', { name: '画廊', exact: true }).click()

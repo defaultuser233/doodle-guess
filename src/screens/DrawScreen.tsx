@@ -606,6 +606,7 @@ export function DrawScreen({
           modelState={modelState}
           saved={saved}
           penStrokeCount={canvasState.penStrokeCount}
+          showDirectSave={mode === 'free'}
           onGuess={() => void handleGuess()}
           onRetryModel={retryModel}
           onSave={() => void persist(guesses, false)}

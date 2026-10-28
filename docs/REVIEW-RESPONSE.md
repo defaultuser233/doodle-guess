@@ -41,13 +41,14 @@
 | P2-10 死代码 | 删除 `getLoadedClassifier`、`getInkRatio`、`onStrokeEnd`、`disabled`、`offTrack`、`MAX_HISTORY`。 |
 | P2-11 路由 | 增加 hash 路由：`#gallery` / `#draw` 可直接打开，`pushState` + `popstate` 支持浏览器前进/后退；`#draw` 无会话时自动开一局。已在浏览器验证直达与前进/后退。 |
 | P3-1 PWA / 离线 | 接入 `vite-plugin-pwa`，生成 manifest、192/512/maskable 图标与 Service Worker；precache 18 个资源（约 1MB），含 `weights.bin` 和字体。已实测预览构建断网刷新、进入画板并显示 AI 在线。 |
+| P3-2 自由画直接保存 | 自由画在未让 AI 猜之前，面板出现「直接保存这幅」；保存为无 guesses 的自由画作品，画廊显示「还没让小猜看」。Playwright 备份流程使用该入口验证。 |
 | P3-3 备份 / 恢复 | 画廊新增「导出备份 / 导入备份」：JSON 包含画作、目标词、Top-3 与来源；导入校验 app/版本/字段/图片 data URL，跳过无效记录，最多 200 幅。Playwright 已验证「导出 → 清空 → 导入恢复」。 |
 | P3-4 贝塞尔平滑 | 笔迹渲染改为经过中点的二次贝塞尔曲线，低采样率下减少折线；分类器仍使用原始点。渲染测试断言平滑路径被调用。 |
 | P3-5 CSP / 安全头 | 生产构建注入严格 CSP meta；主题初始化脚本外置；`public/_headers` 提供 Netlify 风格安全响应头。已在生产构建下验证加载、模型推理、Service Worker 与断网运行。 |
 
 ## 尚未处理
 
-- 代码层评审项已全部处理；模型 v2 / golden set 属于后续产品迭代，不在本轮缺陷修复范围。
+- 评审表 P0–P3 的代码层事项已全部处理；模型 v2 / golden set 属于后续产品迭代，不在本轮缺陷修复范围。
 - Playwright E2E 目前本地运行，未纳入 CI。
 
 ## 验证记录

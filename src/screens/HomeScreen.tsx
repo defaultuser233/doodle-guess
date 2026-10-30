@@ -18,11 +18,12 @@ interface HomeScreenProps {
 export function HomeScreen({
   stats,
   galleryCount,
-  soundOn,
+  // 音效暂时关闭：恢复时取消注释。
+  // soundOn,
   theme,
   onStart,
   onGallery,
-  onToggleSound,
+  // onToggleSound,
   onToggleTheme,
 }: HomeScreenProps) {
   return (
@@ -37,6 +38,7 @@ export function HomeScreen({
         </div>
         <nav className="home__nav-actions" aria-label="页面导航">
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+          {/* 音效暂时关闭：恢复时取消注释。
           <button
             type="button"
             className="icon-button"
@@ -46,6 +48,7 @@ export function HomeScreen({
           >
             <Icon name={soundOn ? 'sound-on' : 'sound-off'} size={20} />
           </button>
+          */}
           <button type="button" className="btn btn--paper btn--nav" onClick={onGallery}>
             <Icon name="gallery" size={18} />
             我的画廊

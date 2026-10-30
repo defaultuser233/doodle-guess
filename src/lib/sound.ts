@@ -1,10 +1,31 @@
+// 音效暂时关闭：录好的 CC0 样片还留在 src/assets/sounds/，等找到更合适的素材再恢复。
+// 恢复步骤：
+// 1. 取消本文件下面整段注释，并删掉文件末尾的空实现；
+// 2. 把 src/lib/sound.test.ts 的 describe.skip 改回 describe；
+// 3. 取消 HomeScreen / DrawScreen 中音效按钮及其 props 解构的注释。
+
+export type SoundName = 'click' | 'stroke' | 'success' | 'fail' | 'undo'
+
+let enabled = false
+
+export function setSoundEnabled(value: boolean): void {
+  enabled = value
+}
+
+export function isSoundEnabled(): boolean {
+  return enabled
+}
+
+export function playSound(_name: SoundName): void {
+  // 音效暂时关闭，不播放任何声音。
+}
+
+/* 原始实现，恢复时取消注释：
 import clickUrl from '../assets/sounds/click.wav'
 import failUrl from '../assets/sounds/fail.mp3'
 import strokeUrl from '../assets/sounds/stroke.mp3'
 import successUrl from '../assets/sounds/success.mp3'
 import undoUrl from '../assets/sounds/undo.mp3'
-
-export type SoundName = 'click' | 'stroke' | 'success' | 'fail' | 'undo'
 
 // Recorded samples (CC0, see docs/CREDITS.md), decoded once and replayed
 // through Web Audio so overlapping strokes do not restart each other.
@@ -26,7 +47,6 @@ const SOUND_GAINS: Record<SoundName, number> = {
 
 const SOUND_NAMES = Object.keys(SOUND_SOURCES) as SoundName[]
 
-let enabled = false
 let context: AudioContext | null = null
 
 const buffers = new Map<SoundName, AudioBuffer>()
@@ -102,10 +122,6 @@ export function setSoundEnabled(value: boolean): void {
   }
 }
 
-export function isSoundEnabled(): boolean {
-  return enabled
-}
-
 export function playSound(name: SoundName): void {
   if (!enabled) return
   const audio = ensureContext()
@@ -117,3 +133,4 @@ export function playSound(name: SoundName): void {
   }
   playBuffer(audio, name, buffer)
 }
+*/

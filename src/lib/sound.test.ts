@@ -83,7 +83,8 @@ async function flush(): Promise<void> {
   })
 }
 
-describe('sound', () => {
+// 音效暂时关闭：取消 describe.skip 即可在恢复音效后继续使用这些用例。
+describe.skip('sound (音效暂时关闭)', () => {
   beforeEach(() => {
     vi.resetModules()
   })

@@ -65,9 +65,10 @@ function formatTime(totalSeconds: number): string {
 export function DrawScreen({
   mode,
   category,
-  soundOn,
+  // 音效暂时关闭：恢复时取消注释。
+  // soundOn,
   theme,
-  onToggleSound,
+  // onToggleSound,
   onToggleTheme,
   onStatsChange,
   onHome,
@@ -532,6 +533,7 @@ export function DrawScreen({
               <Icon name="magic" size={16} /> 自由画
             </span>
           )}
+          {/* 音效暂时关闭：恢复时取消注释。
           <button
             type="button"
             className="icon-button draw-top__sound"
@@ -541,6 +543,7 @@ export function DrawScreen({
           >
             <Icon name={soundOn ? 'sound-on' : 'sound-off'} size={20} />
           </button>
+          */}
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
           <button
             type="button"

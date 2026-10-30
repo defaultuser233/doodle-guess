@@ -2,7 +2,7 @@
 
 一个水彩纸风格的「你画我猜」小网页：抽一张词卡，把它画出来，让本地 AI 猜你画的是什么。
 
-- **100 个中文词卡**，来自 Google QuickDraw 数据集
+- **100 个中文词卡**，来自 Google QuickDraw 数据集；最近 30 张不会重复
 - **识别完全在浏览器里完成**：模型随前端打包，画作不上传、不需要 API Key
 - 水彩纸 + 蜡笔手绘的界面，自己画的图标、水彩背景和动效
 - 画作保存在 IndexedDB，可回看、下载、删除
@@ -113,10 +113,11 @@ src/
 ├─ lib/           分类器、笔迹预处理、IndexedDB、统计、音效、主题、分享
 ├─ data/          100 个类别的中英文名与 emoji
 ├─ styles/        设计 token、纸纹、水彩、动效、暗色主题、响应式
-└─ assets/fonts/  ZCOOL KuaiLe（OFL）
+└─ assets/        字体（OFL）与 CC0 音效
 training/          数据下载 + 训练 + 导出
 docs/PRD.md        视觉、动效、交互与验收标准
 docs/TODO.md       改进项与完成状态
+docs/CREDITS.md    音效等外部素材的来源与许可
 vitest.config.ts   单元测试配置
 ```
 
@@ -124,6 +125,7 @@ vitest.config.ts   单元测试配置
 
 - **QuickDraw Dataset**：Google Creative Lab，CC BY 4.0。模型是在该数据集上训练的衍生作品。
 - **ZCOOL KuaiLe**：站酷快乐体，SIL Open Font License 1.1，许可文本见 `src/assets/fonts/OFL-LICENSE.txt`。
+- **音效**：来自 OpenGameArt / Freesound 的 CC0 录音（qubodup、NachtmahrTV、damsur、Fupi、EZduzziteh），裁剪与转码后随前端打包，逐条来源见 `docs/CREDITS.md`。
 - 界面图标、水彩背景、纸纹、胶带与印章均为本项目自绘 / 用 SVG 滤镜生成，随项目使用。
 
 ## 浏览器支持

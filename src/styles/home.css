@@ -481,7 +481,8 @@
   }
 
   .hero__facts {
-    gap: 14px;
+    flex-wrap: wrap;
+    gap: 12px 14px;
   }
 
   .hero__facts dd {

@@ -102,6 +102,10 @@ export function HomeScreen({
 
           <dl className="hero__facts" aria-label="游戏统计">
             <div>
+              <dt title="小猜被考的次数，自由画不计">总计</dt>
+              <dd>{stats.guesses}</dd>
+            </div>
+            <div>
               <dt>猜中</dt>
               <dd>{stats.wins}</dd>
             </div>

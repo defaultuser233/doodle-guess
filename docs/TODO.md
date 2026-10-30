@@ -82,3 +82,9 @@ pnpm preview
 - [x] 生产 CSP + `public/_headers` 安全头；CSP 下加载、推理、离线均已验证。
 - [x] Vitest 覆盖率门禁：核心 lib 行覆盖 94.86%，阈值 60%。
 - [ ] 更细的触控笔压力曲线调校。
+
+## 五、音效（暂时关闭）
+
+- [ ] 找到更合适的音效后再恢复：当前版本把 `src/lib/sound.ts` 的实现整体注释掉，`playSound` / `setSoundEnabled` 为空实现，首页与画板的音效开关按钮也已注释。
+- 恢复步骤写在 `src/lib/sound.ts` 顶部：取消实现注释、把 `src/lib/sound.test.ts` 的 `describe.skip` 改回 `describe`、恢复两个界面里的音效按钮。
+- 现有 CC0 素材仍在 `src/assets/sounds/`（36KB），来源与许可见 `docs/CREDITS.md`；如果换成新素材，记得同步更新该文件。

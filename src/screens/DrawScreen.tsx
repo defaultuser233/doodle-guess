@@ -9,7 +9,7 @@ import { ResultOverlay } from '../components/ResultOverlay'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { Toast } from '../components/Toast'
 import { WordCard } from '../components/WordCard'
-import { findCategory, type Category } from '../lib/categories'
+import { findCategory, rememberCategory, type Category } from '../lib/categories'
 import { hasOpenDialog } from '../lib/dialogStack'
 import { loadClassifier } from '../lib/classifier'
 import type { Theme } from '../lib/theme'
@@ -208,6 +208,7 @@ export function DrawScreen({
   const saveAsChallenge = useCallback(
     (picked: Category) => {
       setPickerOpen(false)
+      rememberCategory(picked.id)
       void persist(guesses, false, {
         target: picked,
         mode: 'challenge',

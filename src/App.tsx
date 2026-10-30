@@ -3,7 +3,12 @@ import { PaperBackground, type PaperVariant } from './components/PaperBackground
 import { DrawScreen } from './screens/DrawScreen'
 import { GalleryScreen } from './screens/GalleryScreen'
 import { HomeScreen } from './screens/HomeScreen'
-import { pickCategory, type Category } from './lib/categories'
+import {
+  loadRecentWords,
+  pickCategory,
+  rememberCategory,
+  type Category,
+} from './lib/categories'
 import { loadClassifier } from './lib/classifier'
 import { playSound, setSoundEnabled } from './lib/sound'
 import {
@@ -104,14 +109,23 @@ export default function App() {
     if (screen === 'home') refreshGalleryCount()
   }, [screen, refreshGalleryCount])
 
-  const startGame = useCallback((mode: GameMode) => {
-    setSession({
-      id: nextSessionId(),
-      mode,
-      category: mode === 'challenge' ? pickCategory() : null,
-    })
-    setScreen('draw')
+  const dealCategory = useCallback((excludeId?: string | null) => {
+    const category = pickCategory(excludeId ?? null, loadRecentWords())
+    rememberCategory(category.id)
+    return category
   }, [])
+
+  const startGame = useCallback(
+    (mode: GameMode) => {
+      setSession({
+        id: nextSessionId(),
+        mode,
+        category: mode === 'challenge' ? dealCategory() : null,
+      })
+      setScreen('draw')
+    },
+    [dealCategory],
+  )
 
   useEffect(() => {
     if (screen === 'draw' && !session) startGame('challenge')
@@ -142,18 +156,11 @@ export default function App() {
 
 
   const restart = useCallback(() => {
-    setSession((current) => {
-      if (!current) return current
-      return {
-        id: nextSessionId(),
-        mode: current.mode,
-        category:
-          current.mode === 'challenge'
-            ? pickCategory(current.category?.id)
-            : null,
-      }
-    })
-  }, [])
+    if (!session) return
+    const category =
+      session.mode === 'challenge' ? dealCategory(session.category?.id) : null
+    setSession({ id: nextSessionId(), mode: session.mode, category })
+  }, [session, dealCategory])
 
   const handleGalleryCount = useCallback((count: number) => {
     setGalleryCount(count)

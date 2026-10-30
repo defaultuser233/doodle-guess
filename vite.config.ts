@@ -69,7 +69,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,woff2,bin,json,svg,png}'],
+        globPatterns: ['**/*.{js,css,html,woff2,bin,json,svg,png,mp3,wav}'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
@@ -78,4 +78,9 @@ export default defineConfig({
     }),
   ],
   base: './',
+  build: {
+    // Keep decoded-on-demand audio as separate files instead of base64 in JS.
+    assetsInlineLimit: (filePath: string) =>
+      /\.(mp3|wav)$/.test(filePath) ? false : undefined,
+  },
 })

@@ -119,13 +119,10 @@ export function GuessPanel({
     : 0
 
   let hint = '按住画板，开始你的灵魂创作'
-  if (modelState === 'loading') hint = 'AI 正在热手…'
+  if (modelState === 'loading') hint = '小猜正在翻画册…'
   if (modelState === 'error') hint = '识别模型没加载出来'
-  if (modelState === 'ready' && !canGuess) {
-    hint =
-      penStrokeCount > 0
-        ? `已画 ${penStrokeCount} 笔 · 再补几笔，AI 才看得清`
-        : '多画几笔，AI 才看得清'
+  if (modelState === 'ready' && !canGuess && penStrokeCount > 0) {
+    hint = `已画 ${penStrokeCount} 笔 · 再补几笔，AI 才看得清`
   }
   if (phase === 'done') hint = '补两笔，再猜一次'
   if (phase === 'thinking') hint = '别急，我在看…'

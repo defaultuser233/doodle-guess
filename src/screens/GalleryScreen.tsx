@@ -9,7 +9,7 @@ import { Toast } from '../components/Toast'
 import { useToast } from '../hooks/useToast'
 import { createBackup, parseBackup } from '../lib/backup'
 import { downloadArtwork, downloadBlob } from '../lib/download'
-import { SHARE_MESSAGES, shareArtwork } from '../lib/share'
+import { SHARE_MESSAGES, createArtworkCard, shareArtwork } from '../lib/share'
 import {
   clearArtworks,
   deleteArtwork,
@@ -67,13 +67,16 @@ export function GalleryScreen({
     setSelected(artwork)
   }, [])
 
-  const handleDownload = (artwork: Artwork) => {
+  const handleDownload = async (artwork: Artwork) => {
     const created = new Date(artwork.createdAt)
     const stamp = `${created.getFullYear()}${String(created.getMonth() + 1).padStart(2, '0')}${String(created.getDate()).padStart(2, '0')}`
-    void downloadArtwork(
-      artwork.image,
-      `doodle-${artwork.targetId ?? 'free'}-${stamp}.png`,
-    )
+    const filename = `doodle-${artwork.targetId ?? 'free'}-${stamp}.png`
+    const card = await createArtworkCard(artwork)
+    if (card) {
+      downloadBlob(card, filename)
+    } else {
+      await downloadArtwork(artwork.image, filename)
+    }
     showToast('图片已开始下载')
   }
 

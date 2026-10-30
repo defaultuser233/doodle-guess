@@ -235,9 +235,10 @@ export function DrawScreen({
         image,
         emoji: category.emoji,
         title: category.zh,
-        confidence: successGuess?.confidence ?? null,
+        guesses: guesses.slice(0, 3),
         seconds: elapsedSeconds,
         status: 'success',
+        kind: 'challenge',
       })
       if (!blob) {
         showToast('分享图生成失败，请再试一次')
@@ -251,7 +252,7 @@ export function DrawScreen({
     } finally {
       sharingRef.current = false
     }
-  }, [category, elapsedSeconds, showToast, successGuess])
+  }, [category, elapsedSeconds, guesses, showToast])
 
   const handleGuess = useCallback(
     async (auto = false) => {
@@ -260,7 +261,7 @@ export function DrawScreen({
       if (!canvas) return
       const sketch = measureSync('drawing.toSketch', () => canvas.toSketch())
       if (!sketch || sketchInkRatio(sketch) < MIN_INK_RATIO) {
-        showToast('再多画几笔吧')
+        showToast('墨迹太少，小猜看不清')
         return
       }
       if (modelState !== 'ready') {

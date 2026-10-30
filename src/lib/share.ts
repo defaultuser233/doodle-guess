@@ -1,12 +1,16 @@
 import { PAPER_COLOR } from './drawing'
-import type { Artwork } from './types'
+import type { Artwork, GuessRecord } from './types'
 
 const INK = '#2E2A26'
-const TOMATO = '#E4572E'
 const MUSTARD = '#F2B134'
 const CORAL = '#F28C6B'
 const SAGE = '#8FBF9F'
 const SKY = '#7FB3D5'
+const CREAM = '#FBF4E4'
+
+const BODY_FONT = '"PingFang SC", "Microsoft YaHei", sans-serif'
+const DISPLAY_FONT = '"ZCOOL KuaiLe", "PingFang SC", sans-serif'
+const EMOJI_FONT = '"Segoe UI Emoji", "Apple Color Emoji", sans-serif'
 
 export type ShareOutcome =
   | 'shared'
@@ -29,9 +33,11 @@ export interface ShareCardOptions {
   image: string
   emoji: string
   title: string
-  confidence: number | null
+  guesses: GuessRecord[]
   seconds: number
   status: ShareStatus
+  createdAt?: number
+  kind?: 'challenge' | 'free'
 }
 
 function roundedPath(
@@ -67,10 +73,10 @@ function loadImage(source: string): Promise<HTMLImageElement> {
 
 function drawWash(context: CanvasRenderingContext2D): void {
   const washes: Array<[number, number, number, string]> = [
-    [130, 120, 330, CORAL],
-    [980, 230, 300, MUSTARD],
-    [920, 1210, 360, SAGE],
-    [120, 1180, 300, SKY],
+    [180, 150, 430, CORAL],
+    [900, 780, 380, SAGE],
+    [740, 90, 300, MUSTARD],
+    [950, 430, 260, SKY],
   ]
   context.save()
   context.globalAlpha = 0.2
@@ -84,13 +90,63 @@ function drawWash(context: CanvasRenderingContext2D): void {
   context.restore()
 }
 
+function formatDateTime(timestamp: number): string {
+  const date = new Date(timestamp)
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function drawCrown(
+  context: CanvasRenderingContext2D,
+  centerX: number,
+  centerY: number,
+  size: number,
+): void {
+  const half = size / 2
+  const height = size * 0.58
+  context.save()
+  context.translate(centerX, centerY)
+  context.strokeStyle = 'rgba(46, 42, 38, 0.62)'
+  context.lineWidth = 2.4
+  context.lineJoin = 'round'
+  context.beginPath()
+  context.moveTo(-half, height / 2)
+  context.lineTo(-half, -height / 2)
+  context.lineTo(-half / 3, 0)
+  context.lineTo(0, -height / 2)
+  context.lineTo(half / 3, 0)
+  context.lineTo(half, -height / 2)
+  context.lineTo(half, height / 2)
+  context.closePath()
+  context.stroke()
+  context.restore()
+}
+
+function fitTitle(
+  context: CanvasRenderingContext2D,
+  title: string,
+  maxWidth: number,
+): string {
+  let size = 62
+  let font = `400 ${size}px ${DISPLAY_FONT}`
+  context.font = font
+  while (context.measureText(title).width > maxWidth && size > 34) {
+    size -= 2
+    font = `400 ${size}px ${DISPLAY_FONT}`
+    context.font = font
+  }
+  return font
+}
+
 export async function createShareCard({
   image,
   emoji,
   title,
-  confidence,
+  guesses,
   seconds,
   status,
+  createdAt = Date.now(),
+  kind = 'challenge',
 }: ShareCardOptions): Promise<Blob | null> {
   if (typeof document === 'undefined') return null
   if (document.fonts?.ready) {
@@ -103,8 +159,8 @@ export async function createShareCard({
   const picture = await loadImage(image).catch(() => null)
   if (!picture) return null
 
-  const width = 1080
-  const height = 1350
+  const width = 1600
+  const height = 900
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
@@ -115,105 +171,132 @@ export async function createShareCard({
   context.fillRect(0, 0, width, height)
   drawWash(context)
 
-  context.strokeStyle = INK
-  context.lineWidth = 4
-  roundedPath(context, 36, 36, width - 72, height - 72, 26)
-  context.stroke()
-
+  // Right hand info panel.
   context.save()
-  context.strokeStyle = 'rgba(46, 42, 38, 0.16)'
-  context.lineWidth = 2
-  context.setLineDash([10, 10])
-  roundedPath(context, 58, 58, width - 116, height - 116, 18)
-  context.stroke()
-  context.restore()
-
-  // Tape on the top edge.
-  context.save()
-  context.translate(width / 2, 76)
-  context.rotate(-0.035)
-  context.fillStyle = 'rgba(242, 177, 52, 0.6)'
-  context.fillRect(-120, -27, 240, 54)
-  context.strokeStyle = 'rgba(46, 42, 38, 0.2)'
-  context.lineWidth = 1.5
-  context.setLineDash([5, 4])
-  context.beginPath()
-  context.moveTo(-120, -27)
-  context.lineTo(120, -27)
-  context.moveTo(-120, 27)
-  context.lineTo(120, 27)
-  context.stroke()
-  context.restore()
-
-  context.textAlign = 'center'
-  context.textBaseline = 'middle'
-  context.fillStyle = 'rgba(46, 42, 38, 0.62)'
-  context.font = '600 22px "PingFang SC", "Microsoft YaHei", sans-serif'
-  context.fillText('D O O D L E G U E S S', width / 2, 165)
-
-  // Paper frame around the drawing.
-  context.save()
-  context.fillStyle = 'rgba(46, 42, 38, 0.12)'
-  roundedPath(context, 160, 222, 780, 780, 12)
-  context.fill()
-  context.fillStyle = '#FFFDF8'
-  roundedPath(context, 150, 210, 780, 780, 12)
-  context.fill()
-  context.strokeStyle = INK
-  context.lineWidth = 4
-  context.stroke()
-  context.beginPath()
-  roundedPath(context, 180, 240, 720, 720, 6)
+  roundedPath(context, 40, 40, width - 80, height - 80, 30)
   context.clip()
-  context.drawImage(picture, 180, 240, 720, 720)
+  context.fillStyle = CREAM
+  context.fillRect(1000, 40, width - 1040, height - 80)
   context.restore()
 
-  // Stamp only when the claim is true.
-  const stamp =
-    status === 'success'
-      ? { label: '猜中!', color: TOMATO }
-      : status === 'near'
-        ? { label: '差一点', color: MUSTARD }
-        : null
-  if (stamp) {
-    context.save()
-    context.translate(900, 178)
-    context.rotate(-0.16)
-    context.strokeStyle = stamp.color
-    context.lineWidth = 4
-    roundedPath(context, -66, -34, 132, 68, 6)
-    context.stroke()
-    context.fillStyle = stamp.color
-    context.font = '400 34px "ZCOOL KuaiLe", "PingFang SC", sans-serif'
-    context.fillText(stamp.label, 0, 2)
-    context.restore()
-  }
+  context.strokeStyle = INK
+  context.lineWidth = 4
+  roundedPath(context, 40, 40, width - 80, height - 80, 30)
+  context.stroke()
+
+  context.strokeStyle = 'rgba(46, 42, 38, 0.14)'
+  context.lineWidth = 2
+  context.beginPath()
+  context.moveTo(1000, 70)
+  context.lineTo(1000, height - 70)
+  context.stroke()
+
+  // Drawing on the left.
+  const frameX = 150
+  const frameY = 80
+  const frameSize = 740
+  context.fillStyle = '#FFFDF8'
+  roundedPath(context, frameX, frameY, frameSize, frameSize, 14)
+  context.fill()
+  context.strokeStyle = INK
+  context.lineWidth = 4
+  context.stroke()
+
+  context.save()
+  roundedPath(context, frameX + 10, frameY + 10, frameSize - 20, frameSize - 20, 8)
+  context.clip()
+  context.drawImage(
+    picture,
+    frameX + 10,
+    frameY + 10,
+    frameSize - 20,
+    frameSize - 20,
+  )
+  context.restore()
+
+  // Info column.
+  const left = 1050
+  const right = width - 80
+
+  context.textAlign = 'left'
+  context.textBaseline = 'middle'
+  context.fillStyle = 'rgba(46, 42, 38, 0.52)'
+  context.font = `600 24px ${BODY_FONT}`
+  context.fillText('画廊藏品', left, 118)
 
   context.fillStyle = INK
-  context.font = '400 58px "ZCOOL KuaiLe", "PingFang SC", sans-serif'
-  context.fillText(`${emoji} ${title}`, width / 2, 1085)
+  context.font = `36px ${EMOJI_FONT}`
+  context.fillText(emoji, left, 202)
 
-  context.fillStyle = 'rgba(46, 42, 38, 0.66)'
-  context.font = '600 28px "PingFang SC", "Microsoft YaHei", sans-serif'
-  const confidenceText =
+  context.font = fitTitle(context, title, right - left - 110)
+  context.fillText(title, left + 82, 202)
+
+  const statusWord =
     status === 'success'
-      ? confidence === null
-        ? '小猜猜中了'
-        : `AI 的把握 ${Math.round(confidence * 100)}%`
+      ? '猜中'
       : status === 'near'
-        ? 'AI 差一点就猜中'
+        ? '差一点'
         : status === 'miss'
-          ? '这次没猜中'
-          : '自由画'
-  context.fillText(
-    `${confidenceText} · 用时 ${Math.max(1, Math.round(seconds))} 秒`,
-    width / 2,
-    1155,
-  )
+          ? '没猜中'
+          : null
+  const kindWord = kind === 'free' ? '自由画' : '挑战作品'
+  const timeLine = `${formatDateTime(createdAt)} · 用时 ${Math.max(1, Math.round(seconds))} 秒`
+  const kindLine = statusWord ? `${kindWord} · ${statusWord}` : kindWord
 
-  context.fillStyle = 'rgba(46, 42, 38, 0.4)'
-  context.font = '500 20px "PingFang SC", "Microsoft YaHei", sans-serif'
-  context.fillText('识别在本地完成 · 画作不上传', width / 2, 1262)
+  context.fillStyle = 'rgba(46, 42, 38, 0.62)'
+  context.font = `500 24px ${BODY_FONT}`
+  context.fillText(timeLine, left, 264)
+
+  context.fillStyle = 'rgba(46, 42, 38, 0.5)'
+  context.font = `500 22px ${BODY_FONT}`
+  context.fillText(kindLine, left, 300)
+
+  const rows = guesses.slice(0, 3)
+  const rowTop = 378
+  const rowHeight = 112
+
+  if (rows.length === 0) {
+    context.fillStyle = 'rgba(46, 42, 38, 0.5)'
+    context.font = `500 28px ${BODY_FONT}`
+    context.fillText('还没有让小猜看过', left, rowTop + 40)
+  }
+
+  rows.forEach((guess, index) => {
+    const centerY = rowTop + index * rowHeight + 40
+
+    if (index === 0) {
+      drawCrown(context, left + 16, centerY, 30)
+    } else {
+      context.fillStyle = 'rgba(46, 42, 38, 0.55)'
+      context.font = `600 26px ${BODY_FONT}`
+      context.textAlign = 'center'
+      context.fillText(String(index + 1), left + 16, centerY)
+      context.textAlign = 'left'
+    }
+
+    context.fillStyle = INK
+    context.font = `32px ${EMOJI_FONT}`
+    context.fillText(guess.emoji, left + 52, centerY)
+
+    context.font = `600 30px ${BODY_FONT}`
+    context.fillText(guess.zh, left + 104, centerY)
+
+    context.textAlign = 'right'
+    context.font = `600 30px ${BODY_FONT}`
+    context.fillStyle = index === 0 ? INK : 'rgba(46, 42, 38, 0.7)'
+    context.fillText(`${Math.round(guess.confidence * 100)}%`, right, centerY)
+    context.textAlign = 'left'
+
+    context.save()
+    context.strokeStyle = 'rgba(46, 42, 38, 0.16)'
+    context.lineWidth = 1.5
+    context.setLineDash([7, 7])
+    context.beginPath()
+    context.moveTo(left, centerY + 58)
+    context.lineTo(right, centerY + 58)
+    context.stroke()
+    context.restore()
+  })
 
   return new Promise((resolve) => {
     canvas.toBlob((blob) => resolve(blob), 'image/png')
@@ -300,26 +383,30 @@ export async function shareImage(
   }
 }
 
-export async function shareArtwork(artwork: Artwork): Promise<ShareOutcome> {
+export function artworkStatus(artwork: Artwork): ShareStatus {
+  if (artwork.mode === 'free') return 'free'
+  if (artwork.success) return 'success'
   const near =
     artwork.targetId !== null &&
     artwork.guesses.some((guess) => guess.id === artwork.targetId)
-  const status: ShareStatus =
-    artwork.mode === 'free'
-      ? 'free'
-      : artwork.success
-        ? 'success'
-        : near
-          ? 'near'
-          : 'miss'
-  const blob = await createShareCard({
+  return near ? 'near' : 'miss'
+}
+
+export function createArtworkCard(artwork: Artwork): Promise<Blob | null> {
+  return createShareCard({
     image: artwork.image,
     emoji: artwork.targetEmoji,
     title: artwork.targetZh,
-    confidence: artwork.success ? (artwork.guesses[0]?.confidence ?? null) : null,
+    guesses: artwork.guesses.slice(0, 3),
     seconds: artwork.durationMs / 1000,
-    status,
+    status: artworkStatus(artwork),
+    createdAt: artwork.createdAt,
+    kind: artwork.mode === 'free' ? 'free' : 'challenge',
   })
+}
+
+export async function shareArtwork(artwork: Artwork): Promise<ShareOutcome> {
+  const blob = await createArtworkCard(artwork)
   if (!blob) return 'failed'
   return shareImage(blob, `doodle-${artwork.targetId ?? 'free'}.png`)
 }
